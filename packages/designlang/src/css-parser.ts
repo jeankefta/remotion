@@ -239,11 +239,39 @@ function extractColors(css: string): string[] {
 	return dedupColors(raw);
 }
 
+function countPattern(css: string, pattern: RegExp): number {
+	return (css.match(new RegExp(pattern.source, 'gi')) ?? []).length;
+}
+
+function detectSpacingBase(spacing: string[]): number | null {
+	const pxValues = spacing
+		.filter((s) => s.endsWith('px'))
+		.map((s) => parseFloat(s))
+		.filter((n) => !isNaN(n) && n > 0 && n <= 64);
+
+	if (pxValues.length < 3) return null;
+
+	// Try common grid bases: 1, 2, 4, 8
+	for (const base of [2, 4, 8, 1]) {
+		const aligned = pxValues.filter((v) => v % base === 0).length;
+		if (aligned / pxValues.length >= 0.6) return base;
+	}
+	return null;
+}
+
+function countBreakpointChanges(css: string): number {
+	// Count @media blocks that contain layout-affecting CSS
+	const LAYOUT_RE = /display\s*:|grid-template|flex-|column-count|columns\s*:|float\s*:/i;
+	const mediaBlocks = css.match(/@media[^{]+\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/gi) ?? [];
+	return mediaBlocks.filter((block) => LAYOUT_RE.test(block)).length;
+}
+
 export function parseCss(
 	css: string,
 	baseUrl: string,
 	domain: string,
 ): DesignTokens {
+	const spacing = extractSpacing(css);
 	return {
 		url: baseUrl,
 		domain,
@@ -257,11 +285,22 @@ export function parseCss(
 			lineHeights: extractLineHeights(css),
 			letterSpacings: extractLetterSpacings(css),
 		},
-		spacing: extractSpacing(css),
+		spacing,
+		spacingBase: detectSpacingBase(spacing),
 		borderRadius: extractBorderRadius(css),
 		shadows: extractShadows(css),
 		breakpoints: extractBreakpoints(css),
+		breakpointChanges: countBreakpointChanges(css),
 		zIndexes: extractZIndexes(css),
 		customProperties: extractCssVars(css),
+		layout: {
+			gridCount: countPattern(css, /display\s*:\s*(?:inline-)?grid/),
+			flexCount: countPattern(css, /display\s*:\s*(?:inline-)?flex/),
+		},
+		interactions: {
+			transitionCount: countPattern(css, /\btransition\s*:/),
+			animationCount: countPattern(css, /\banimation\s*:/),
+			keyframeCount: countPattern(css, /@keyframes\s+\w+/),
+		},
 	};
 }

@@ -6,21 +6,22 @@ import {tokensToJson, tokensToCssVars, writeFile} from '../output';
 import type {DesignTokens} from '../types';
 
 function mergeDesigns(visual: DesignTokens, voice: DesignTokens): DesignTokens {
-	// Visuals (colours, spacing, shadows, radii) from A
-	// Voice (typography, breakpoints) from B
 	return {
 		url: `${visual.url} × ${voice.url}`,
 		domain: `${visual.domain}-x-${voice.domain}`,
 		colors: visual.colors,
 		typography: voice.typography,
 		spacing: visual.spacing,
+		spacingBase: visual.spacingBase,
 		borderRadius: visual.borderRadius,
 		shadows: visual.shadows,
 		breakpoints: voice.breakpoints.length > 0 ? voice.breakpoints : visual.breakpoints,
+		breakpointChanges: voice.breakpointChanges,
 		zIndexes: visual.zIndexes,
+		layout: visual.layout,
+		interactions: visual.interactions,
 		customProperties: {
 			...visual.customProperties,
-			// Override with voice typography vars if they exist
 			...Object.fromEntries(
 				Object.entries(voice.customProperties).filter(([k]) =>
 					k.includes('font') || k.includes('text') || k.includes('type'),

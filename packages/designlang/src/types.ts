@@ -12,11 +12,22 @@ export interface DesignTokens {
 		letterSpacings: string[];
 	};
 	spacing: string[];
+	spacingBase: number | null;
 	borderRadius: string[];
 	shadows: string[];
 	breakpoints: string[];
+	breakpointChanges: number;
 	zIndexes: string[];
 	customProperties: Record<string, string>;
+	layout: {
+		gridCount: number;
+		flexCount: number;
+	};
+	interactions: {
+		transitionCount: number;
+		animationCount: number;
+		keyframeCount: number;
+	};
 }
 
 export interface GradeResult {

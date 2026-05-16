@@ -76,6 +76,238 @@ export function tokensToScss(tokens: DesignTokens): string {
 	return lines.join('\n');
 }
 
+export function generateColorsCss(tokens: DesignTokens): string {
+	const lines = [
+		`/* Color Palette — ${tokens.domain} */`,
+		`/* ${tokens.colors.all.length} colors extracted */`,
+		'',
+		':root {',
+	];
+	tokens.colors.all.forEach((c, i) => {
+		lines.push(`  --color-${i + 1}: ${c};`);
+	});
+	lines.push('}');
+	lines.push('');
+	lines.push('/* Utility classes */');
+	tokens.colors.all.forEach((c, i) => {
+		lines.push(`.bg-${i + 1} { background-color: ${c}; }`);
+		lines.push(`.text-${i + 1} { color: ${c}; }`);
+	});
+	return lines.join('\n');
+}
+
+export function generateShadowsCss(tokens: DesignTokens): string {
+	const lines = [
+		`/* Shadows — ${tokens.domain} */`,
+		'',
+		':root {',
+	];
+	tokens.shadows.forEach((s, i) => {
+		lines.push(`  --shadow-${i + 1}: ${s};`);
+	});
+	if (tokens.shadows.length === 0) {
+		lines.push('  /* No box-shadow values detected */');
+	}
+	lines.push('}');
+	lines.push('');
+	lines.push('/* Elevation utilities */');
+	tokens.shadows.forEach((s, i) => {
+		lines.push(`.shadow-${i + 1} { box-shadow: ${s}; }`);
+	});
+	return lines.join('\n');
+}
+
+export function generateDesignReadme(tokens: DesignTokens, grade: string, score: number): string {
+	const fontList = tokens.typography.fontFamilies.slice(0, 3).join(', ') || 'system-ui';
+	return `# Design Tokens — ${tokens.domain}
+
+Extracted by [designlang](https://github.com/remotion-dev/remotion) · ${new Date().toISOString().slice(0, 10)}
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Grade | **${grade}** (${score}/100) |
+| Colors | ${tokens.colors.all.length} |
+| Fonts | ${fontList} |
+| Spacing values | ${tokens.spacing.length}${tokens.spacingBase ? ` (base ${tokens.spacingBase}px)` : ''} |
+| Shadows | ${tokens.shadows.length} |
+| Border radii | ${tokens.borderRadius.length} |
+| CSS variables | ${Object.keys(tokens.customProperties).length} |
+| Breakpoints | ${tokens.breakpoints.join(', ') || 'none'} |
+
+## Files
+
+| File | Description |
+|---|---|
+| \`tokens.json\` | All design tokens as JSON |
+| \`tokens.css\` | CSS custom properties |
+| \`tokens.scss\` | SCSS variables |
+| \`tailwind.config.js\` | Tailwind CSS extension |
+| \`colors.css\` | Color palette + utility classes |
+| \`shadows.css\` | Shadow tokens + utility classes |
+| \`typography.css\` | Typography styles |
+| \`layout.json\` | Grid/flex layout analysis |
+| \`interactions.json\` | Transition/animation data |
+| \`responsive.json\` | Breakpoint/viewport data |
+| \`a11y.json\` | Accessibility report |
+| \`grade.json\` | Design quality scores |
+| \`grade-badge.svg\` | Embeddable score badge |
+| \`components/buttons.css\` | Button component styles |
+| \`components/cards.css\` | Card component styles |
+| \`preview.html\` | Visual token browser |
+
+## Usage
+
+\`\`\`css
+/* CSS */
+@import './tokens.css';
+\`\`\`
+
+\`\`\`scss
+/* SCSS */
+@import './tokens';
+\`\`\`
+
+\`\`\`js
+/* Tailwind */
+const tokens = require('./tailwind.config.js');
+module.exports = { ...yourConfig, theme: { ...tokens.theme } };
+\`\`\`
+`;
+}
+
+function esc(s: string): string {
+	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+export function generatePreviewHtml(tokens: DesignTokens, grade: string, score: number): string {
+	const fontImports = tokens.typography.fontFamilies
+		.slice(0, 3)
+		.filter((f) => !/^(?:system-ui|-apple-system|monospace|sans-serif|serif|inherit|initial|ui-\w+)/.test(f))
+		.map((f) => {
+			const name = encodeURIComponent(f);
+			return `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${name}:wght@400;600;700&display=swap">`;
+		})
+		.join('\n');
+
+	const gradeColor = grade.startsWith('A') ? '#2da44e' : grade.startsWith('B') ? '#0969da' : grade.startsWith('C') ? '#bf8700' : '#d4262c';
+
+	const colorSwatches = tokens.colors.all
+		.slice(0, 24)
+		.map((c) => `<div class="swatch" style="background:${esc(c)}" title="${esc(c)}" onclick="navigator.clipboard?.writeText('${esc(c)}')" tabindex="0"><span class="swatch-hex">${esc(c)}</span></div>`)
+		.join('');
+
+	const typoSamples = tokens.typography.fontFamilies
+		.slice(0, 4)
+		.map((f) => `<div class="font-sample" style="font-family:${esc(f)},system-ui"><span class="font-name">${esc(f)}</span><div class="font-preview">Aa Bb Cc — The quick brown fox</div></div>`)
+		.join('');
+
+	const spacingBars = tokens.spacing
+		.slice(0, 14)
+		.map((s) => {
+			const px = parseFloat(s);
+			const width = Math.min(isNaN(px) ? 20 : px * (s.endsWith('rem') ? 16 : 1), 280);
+			return `<div class="spacing-row"><code>${esc(s)}</code><div class="spacing-bar" style="width:${width}px"></div></div>`;
+		})
+		.join('');
+
+	const shadowSamples = tokens.shadows
+		.slice(0, 6)
+		.map((s, i) => `<div class="shadow-box" style="box-shadow:${esc(s)}">Shadow ${i + 1}<code style="display:block;font-size:.65rem;color:#57606a;margin-top:.25rem">${esc(s.slice(0, 40))}${s.length > 40 ? '…' : ''}</code></div>`)
+		.join('');
+
+	const radiusSamples = tokens.borderRadius
+		.slice(0, 6)
+		.map((r) => `<div class="radius-box" style="border-radius:${esc(r)}"><code>${esc(r)}</code></div>`)
+		.join('');
+
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Design Tokens — ${esc(tokens.domain)}</title>
+${fontImports}
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f6f8fa;color:#1c2128;line-height:1.5}
+header{background:#0d1117;color:#e6edf3;padding:1.25rem 2rem;display:flex;align-items:center;gap:1.5rem}
+header h1{font-size:1rem;font-weight:700;letter-spacing:.03em}
+.badge{background:${gradeColor};color:#fff;font-size:1.1rem;font-weight:800;width:2.5rem;height:2.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.score{color:#8b949e;font-size:.85rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem;padding:1.5rem 2rem}
+.card{background:#fff;border:1px solid #d0d7de;border-radius:8px;padding:1.25rem}
+.card h2{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#57606a;margin-bottom:1rem}
+.swatches{display:flex;flex-wrap:wrap;gap:6px}
+.swatch{width:44px;height:44px;border-radius:6px;border:1px solid rgba(0,0,0,.08);cursor:pointer;position:relative;transition:transform .1s}
+.swatch:hover{transform:scale(1.12);z-index:1}
+.swatch-hex{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#1c2128;color:#fff;font-size:.6rem;font-family:monospace;padding:2px 4px;border-radius:3px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .1s}
+.swatch:hover .swatch-hex{opacity:1}
+.font-sample{margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid #f0f2f4}
+.font-sample:last-child{border-bottom:none;margin-bottom:0}
+.font-name{font-size:.7rem;color:#57606a;font-family:monospace}
+.font-preview{font-size:1.4rem;line-height:1.3;margin-top:.25rem}
+.spacing-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.4rem;font-size:.75rem}
+.spacing-row code{width:4rem;text-align:right;color:#57606a;font-family:monospace}
+.spacing-bar{height:12px;background:#0969da;border-radius:2px;min-width:2px}
+.shadow-box{background:#fff;border:1px solid #e8eaed;border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;font-size:.8rem;font-weight:500}
+.radius-box{width:60px;height:60px;background:#0969da;display:inline-flex;align-items:center;justify-content:center;margin:.25rem;color:#fff;font-size:.6rem;font-family:monospace;text-align:center;padding:.25rem}
+footer{text-align:center;color:#57606a;font-size:.75rem;padding:1.5rem}
+</style>
+</head>
+<body>
+<header>
+  <div class="badge">${esc(grade)}</div>
+  <div>
+    <h1>${esc(tokens.domain)}</h1>
+    <div class="score">${score}/100 · ${tokens.colors.all.length} colors · ${tokens.typography.fontFamilies.length} fonts · ${tokens.spacing.length} spacing</div>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="card" style="grid-column:1/-1">
+    <h2>Color Palette (${tokens.colors.all.length})</h2>
+    <div class="swatches">${colorSwatches}</div>
+  </div>
+
+  <div class="card">
+    <h2>Typography</h2>
+    ${typoSamples || '<em style="color:#57606a;font-size:.85rem">No explicit font families detected</em>'}
+  </div>
+
+  <div class="card">
+    <h2>Spacing Scale (${tokens.spacing.length}${tokens.spacingBase ? ` · base ${tokens.spacingBase}px` : ''})</h2>
+    ${spacingBars || '<em style="color:#57606a;font-size:.85rem">No spacing values detected</em>'}
+  </div>
+
+  ${tokens.shadows.length > 0 ? `<div class="card">
+    <h2>Shadows (${tokens.shadows.length})</h2>
+    ${shadowSamples}
+  </div>` : ''}
+
+  ${tokens.borderRadius.length > 0 ? `<div class="card">
+    <h2>Border Radius (${tokens.borderRadius.length})</h2>
+    <div>${radiusSamples}</div>
+  </div>` : ''}
+
+  <div class="card">
+    <h2>Layout &amp; Interactions</h2>
+    <table style="font-size:.85rem;border-collapse:collapse;width:100%">
+      <tr><td style="padding:.2rem .5rem .2rem 0;color:#57606a">Grid rules</td><td><strong>${tokens.layout.gridCount}</strong></td></tr>
+      <tr><td style="padding:.2rem .5rem .2rem 0;color:#57606a">Flex rules</td><td><strong>${tokens.layout.flexCount}</strong></td></tr>
+      <tr><td style="padding:.2rem .5rem .2rem 0;color:#57606a">Transitions</td><td><strong>${tokens.interactions.transitionCount}</strong></td></tr>
+      <tr><td style="padding:.2rem .5rem .2rem 0;color:#57606a">Animations</td><td><strong>${tokens.interactions.animationCount}</strong></td></tr>
+      <tr><td style="padding:.2rem .5rem .2rem 0;color:#57606a">Keyframe sets</td><td><strong>${tokens.interactions.keyframeCount}</strong></td></tr>
+      <tr><td style="padding:.2rem .5rem .2rem 0;color:#57606a">Breakpoints</td><td><strong>${tokens.breakpoints.join(', ') || 'none'}</strong></td></tr>
+    </table>
+  </div>
+</div>
+
+<footer>Generated by <strong>designlang</strong> · ${new Date().toISOString()} · Click a swatch to copy</footer>
+</body>
+</html>`;
+}
+
 export function tokensTailwindConfig(tokens: DesignTokens): string {
 	const colors: Record<string, string> = {};
 	tokens.colors.all.slice(0, 10).forEach((c, i) => {
