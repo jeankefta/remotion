@@ -9,30 +9,48 @@ import {runGrade} from './commands/grade';
 import {runBattle} from './commands/battle';
 import {runClone} from './commands/clone';
 import {runFull} from './commands/full';
+import {runApply} from './commands/apply';
+import {runBrands} from './commands/brands';
+import {runDrift} from './commands/drift';
+import {runLint} from './commands/lint';
+import {runVisualDiff} from './commands/visual-diff';
+import {runMcp} from './commands/mcp-server';
 import type {RemixVocab} from './types';
 import {ALL_VOCABS} from './types';
 
-const VERSION = '12.8.0';
+const VERSION = '12.9.0';
 
 const HELP = `
 ${chalk.bold('designlang')} v${VERSION} — extract and transform design systems from any website
 
-${chalk.bold('Usage:')}
+${chalk.bold('Extraction & analysis:')}
 
   npx designlang <url>                              Extract design tokens
   npx designlang --full <url>                       Screenshots + responsive + interactions
-
   npx designlang grade <url> [--badge]              Design report card (+ SVG badge)
   npx designlang battle <url-a> <url-b>             Head-to-head graded comparison
+  npx designlang brands <url> [url …]               N-brand matrix
 
-  npx designlang brand <url>                        13-chapter brand guidelines (AI)
+${chalk.bold('Diff & CI:')}
+
+  npx designlang visual-diff <url-a> <url-b>        Single-file HTML visual diff report
+  npx designlang drift <url> --tokens <file>        Live site vs. local token file
+  npx designlang lint <tokens.json> [--strict]      CI-ready token linter
+
+${chalk.bold('Generate & apply:')}
+
+  npx designlang apply <url> -d <./app>             Auto-detect framework, write tokens
   npx designlang clone <url>                        Working Next.js starter (AI)
   npx designlang pack <url>                         Design-system directory
-
+  npx designlang brand <url>                        13-chapter brand guidelines (AI)
   npx designlang remix <url> --as <vocab>           Restyle in a vocabulary (AI)
-  npx designlang remix <url> --all                  All 6 vocabularies (AI)
+  npx designlang remix <url> --all                  All 6 vocabularies at once
   npx designlang pair <url-a> <url-b>               Fuse visuals A × voice B
   npx designlang theme-swap <url> --primary <hex>   Recolour around your brand
+
+${chalk.bold('Integrations:')}
+
+  npx designlang mcp                               stdio MCP server for Cursor / Claude Code
 
 ${chalk.bold('Remix vocabularies:')} ${ALL_VOCABS.join(', ')}
 
@@ -43,13 +61,15 @@ ${chalk.bold('Examples:')}
   npx designlang https://stripe.com
   npx designlang grade stripe.com --badge
   npx designlang battle stripe.com linear.app
+  npx designlang brands stripe.com vercel.com linear.app
+  npx designlang visual-diff stripe.com vercel.com
+  npx designlang drift stripe.com --tokens ./src/tokens.json
+  npx designlang lint ./design-tokens.json
+  npx designlang apply stripe.com -d ./my-app
   npx designlang brand stripe.com
   npx designlang remix stripe.com --as cyberpunk
   npx designlang theme-swap stripe.com --primary "#ff4800"
-  npx designlang pair stripe.com linear.app
-  npx designlang pack stripe.com
-  npx designlang clone stripe.com
-  npx designlang --full stripe.com
+  npx designlang mcp
 `;
 
 function parseFlags(args: string[]): {
@@ -61,17 +81,23 @@ function parseFlags(args: string[]): {
 	let i = 0;
 	while (i < args.length) {
 		const arg = args[i];
-		if (!arg) { i++; continue; }
-		if (arg.startsWith('--')) {
-			const key = arg.slice(2);
+		if (!arg) {
+			i++;
+			continue;
+		}
+		if (arg.startsWith('--') || arg === '-d') {
+			const key = arg.startsWith('--') ? arg.slice(2) : 'd';
 			const next = args[i + 1];
-			if (next && !next.startsWith('--')) {
+			if (next && !next.startsWith('-')) {
 				flags[key] = next;
 				i += 2;
 			} else {
 				flags[key] = true;
 				i++;
 			}
+		} else if (arg === '-s') {
+			flags['strict'] = true;
+			i++;
 		} else {
 			positional.push(arg);
 			i++;
@@ -127,6 +153,39 @@ export async function run(argv: string[]): Promise<void> {
 			return runBattle(urlA, urlB);
 		}
 
+		case 'brands': {
+			const urls = rest;
+			if (urls.length < 2) throw new Error('Usage: designlang brands <url1> <url2> [url3…]');
+			return runBrands(urls);
+		}
+
+		case 'visual-diff': {
+			const [urlA, urlB] = rest;
+			if (!urlA || !urlB) throw new Error('Usage: designlang visual-diff <url-a> <url-b>');
+			return runVisualDiff(urlA, urlB);
+		}
+
+		case 'drift': {
+			const url = rest[0];
+			if (!url) throw new Error('Usage: designlang drift <url> --tokens <file>');
+			const tokensFile = flags['tokens'] as string | undefined;
+			if (!tokensFile) throw new Error('Usage: designlang drift <url> --tokens <file>');
+			return runDrift(url, tokensFile);
+		}
+
+		case 'lint': {
+			const file = rest[0];
+			if (!file) throw new Error('Usage: designlang lint <tokens.json> [--strict]');
+			return runLint(file, Boolean(flags['strict']));
+		}
+
+		case 'apply': {
+			const url = rest[0];
+			if (!url) throw new Error('Usage: designlang apply <url> -d <dir>');
+			const dir = (flags['d'] as string | undefined) ?? '.';
+			return runApply(url, dir);
+		}
+
 		case 'brand': {
 			const url = rest[0];
 			if (!url) throw new Error('Usage: designlang brand <url>');
@@ -156,7 +215,9 @@ export async function run(argv: string[]): Promise<void> {
 				);
 			}
 			if (vocabFlag && !ALL_VOCABS.includes(vocabFlag as RemixVocab)) {
-				throw new Error(`Unknown vocabulary: ${vocabFlag}\nOptions: ${ALL_VOCABS.join(', ')}`);
+				throw new Error(
+					`Unknown vocabulary: ${vocabFlag}\nOptions: ${ALL_VOCABS.join(', ')}`,
+				);
 			}
 			return runRemix(url, vocabFlag as RemixVocab | null, allFlag);
 		}
@@ -174,6 +235,9 @@ export async function run(argv: string[]): Promise<void> {
 			if (!primary) throw new Error('Usage: designlang theme-swap <url> --primary <hex>');
 			return runThemeSwap(url, primary);
 		}
+
+		case 'mcp':
+			return runMcp();
 
 		default:
 			console.error(chalk.red(`Unknown command: ${command}`));
