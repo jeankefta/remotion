@@ -162,6 +162,7 @@ import {FastUpdates} from './VisualModeTests/FastUpdates';
 import {FastUpdatesNested} from './VisualModeTests/FastUpdatesNested';
 import {VoiceVisualization} from './voice-visualization';
 import {WhisperWeb} from './WhisperWeb';
+import {SocialMedia} from './SocialMedia/SocialMedia';
 
 class Vector2 {
 	readonly x: number;
@@ -670,6 +671,14 @@ export const Index: React.FC = () => {
 						color: ['rgba(19, 124, 45, 0.059)' as const],
 					}}
 					schema={betaTextSchema}
+				/>
+				<Composition
+					id="social-media"
+					component={SocialMedia}
+					width={480}
+					height={640}
+					fps={30}
+					durationInFrames={270}
 				/>
 				<Composition
 					id="green"
