@@ -1,0 +1,48 @@
+{
+	"repository": {
+		"url": "https://github.com/remotion-dev/remotion/tree/main/packages/designlang"
+	},
+	"name": "designlang",
+	"version": "4.0.441",
+	"description": "Extract, analyze, and transform design systems from any website",
+	"main": "dist/cli.js",
+	"bin": {
+		"designlang": "bin.js"
+	},
+	"scripts": {
+		"make": "tsc -p tsconfig.json",
+		"prepare": "tsc -p tsconfig.json",
+		"lint": "eslint src",
+		"test": "bun test src",
+		"build": "tsc -p tsconfig.json"
+	},
+	"files": [
+		"dist",
+		"bin.js",
+		"src"
+	],
+	"author": "Remotion",
+	"license": "SEE LICENSE IN LICENSE.md",
+	"dependencies": {
+		"@anthropic-ai/sdk": "0.39.0",
+		"chalk": "4.1.2"
+	},
+	"devDependencies": {
+		"@types/node": "20.12.14",
+		"@remotion/eslint-config-internal": "workspace:*",
+		"eslint": "catalog:",
+		"@typescript/native-preview": "catalog:",
+		"typescript": "5.9.3"
+	},
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"keywords": [
+		"design",
+		"design-system",
+		"css",
+		"tokens",
+		"brand",
+		"cli"
+	]
+}
