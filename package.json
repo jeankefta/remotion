@@ -9,6 +9,7 @@
 		"stylecheck": "turbo run lint formatting --no-update-notifier",
 		"formatting": "turbo run formatting --no-update-notifier",
 		"format": "bun pre-commit.ts",
+		"update-humanizer": "bun update-humanizer-skill.ts",
 		"build": "turbo run make --no-update-notifier",
 		"build-docs": "TURBO_TELEMETRY_DISABLED=1 turbo run build-docs --no-update-notifier",
 		"testssr": "turbo run testssr --no-update-notifier",
